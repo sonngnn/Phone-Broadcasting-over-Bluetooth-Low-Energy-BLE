@@ -1,0 +1,165 @@
+%% Packet creation for Bluetooth
+clear 
+close all 
+clc 
+
+addpath("../transmission_image/")
+addpath("../Transmission_audio/")
+addpath("./Bluetooth_functions/")
+addpath("./creation_trame/")
+addpath("./fonction_annexe/")
+addpath("./fonction_fichier/")
+
+%% Parameters
+
+% Pre-defined Parameters
+
+data_rate = 1e6; % 1 Mbits/s
+sps = 8;
+time_between_primaries = 0.02; % in s
+time_between_secondaries = 0.002; % in s
+time_between_ext_primaries = 20; % in us
+time_between_ext_secondaries = 20; % in us
+Tb = 1;
+primary_channel_index = 37;
+secondary_channel_index = 9;
+length_ext_frag_max = 255;
+
+% Parameters defined by the user
+
+%file_to_send = ask_user("filename"); % Choose a file to send (image/audio/video/text)
+file_to_send = "audio_output.m4a";
+
+%packet_mode = ask_user("packet_mode"); % Extended / Legacy
+packet_mode = "Legacy";
+
+if strcmp(packet_mode,"Extended") == 1
+    % ble_mode : 1M/125k
+    % Strategy : primary : all data on primary (channel), primary/secondary : small header on primary and
+    % data on secondary, chained : chained packets
+    ble_mode = ask_user("ble_mode");
+    send_strategy = ask_user("strategy");
+    length_ext_frag_max = ask_user("length"); % Total length of a fragment in Extended
+else
+    ble_mode = '1M';
+    send_strategy = 'primary';
+end
+
+%discoverable_flag = ask_user("discoverable"); % Decide if the first ADStructure is 02 01 06
+discoverable_flag = "N";
+
+%name_flag = ask_user("name_flag"); % Decide if the '09' structure (name) is in the bitstream
+name_flag = "N";
+name = [];
+if strcmp(name_flag, "Y") == 1
+    name = ask_user("name");
+end
+
+%SIG = ask_user("SIG");
+SIG = 4677;
+
+%advA_bi = ask_user("address"); % AdvA used in headers converted in binary
+advA_bi = [0 1 0 1 0 1 0 1 1 1 0 1 1 1 0 1 0 0 1 1 0 0 1 1 1 0 1 1 1 0 1 1 0 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1]; % AABBCCDDEEFF
+
+%multiple_send = ask_user("multiple"); % How many times a packet must be sent to guarantee a good receipt
+multiple_send = 20;
+
+%unique_binary_file = ask_user("unique_binary_file"); % If we transfer the data through 1 or multiple binary file
+unique_binary_file = "Y";
+
+%entrelacage = ask_user("entrelacage");
+entrelacage = "Y";
+
+%mobile = ask_user("mobile"); % Reception with mobile (Laurent)
+mobile = "Y";
+
+notif = "N";
+
+if strcmp(mobile,"Y") == 1
+    %notif = ask_user("notif");
+    notif = "N"; % Changer ici si Y/N
+end
+
+%% Before creating the packets
+
+% Convert in bitstream
+[bitstream_to_send, data_type] = convert_file(file_to_send); % Convert the file to a binary stream with the correct algorithm depending of the data type + return data type
+% data_type : 00 if text, 10 if audio, 01 if image, 11 if vidéo 
+
+%bitstream_auth_to_send = auth(bitstream_to_send); % Add the authentication part to the end of the bitstream
+bitstream_auth_to_send = bitstream_to_send;
+% Fragmentation
+fragments = fragmentation(bitstream_auth_to_send,packet_mode,ble_mode, send_strategy, length_ext_frag_max, discoverable_flag, name_flag, name, notif); % Fragments the bitstream into several packets depending on the chosen modes
+
+%fragments{1} = [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1];
+%fragments{2} = [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0];
+%% Creating packets
+
+if strcmp(packet_mode,"Legacy") == 1
+    if strcmp(mobile,"Y") == 1
+        packets = create_packet_legacy_mobile(fragments, primary_channel_index, advA_bi, multiple_send, data_type, name_flag, name, discoverable_flag, SIG, notif);
+    else
+        packets = create_packet_legacy(fragments, primary_channel_index, advA_bi, multiple_send, data_type, name_flag, name, discoverable_flag, SIG);
+    end
+else
+    if strcmp(send_strategy,"primary") == 1
+        if strcmp(mobile,"Y") == 1
+            packets_primary = create_packet_ext_primary_mobile(fragments, primary_channel_index, advA_bi, multiple_send, data_type, ble_mode, name_flag, name, discoverable_flag, SIG,notif);
+        else
+            packets_primary = create_packet_ext_primary(fragments, primary_channel_index, advA_bi, multiple_send, data_type, ble_mode, length_ext_frag_max, discoverable_flag);
+        end
+    elseif strcmp(send_strategy,"primary/secondary") == 1
+        [packets_primary, packets_secondary] = create_packet_ext_primary_secondary(fragments, primary_channel_index, secondary_channel_index, advA_bi, multiple_send, data_type, ble_mode, time_between_primary_and_secondary, time_between_ext_primaries,data_rate);
+    else
+        [packets_primary, packets_secondary] = create_packet_ext_chained(fragments, primary_channel_index, secondary_channel_index, advA_bi, multiple_send, data_type, ble_mode, time_between_primary_and_secondary, time_between_ext_primaries,time_between_ext_secondaries, data_rate);
+    end
+end
+
+
+%% Modulation
+
+if strcmp(packet_mode,"Legacy") == 1
+     if strcmp(mobile,"Y") == 1
+        for idx = 1:length(packets)
+            packets_modulated{idx}(1,:) = GMSK_modulation(packets{idx}(1,:).',sps,Tb);
+            for rep = 2:multiple_send
+                packets_modulated{idx}(rep,:) = packets_modulated{idx}(1,:);
+            end
+        end
+
+     else
+        for idx = 1:length(packets)
+            for nb_sent = 1:multiple_send
+                packets_modulated{idx}(nb_sent,:) = GMSK_modulation(packets{idx}(nb_sent,:).',sps,Tb);
+            end
+        end
+     end
+    
+    
+else
+    if strcmp(send_strategy,"primary") == 1
+        for idx = 1:length(packets_primary)
+            for nb_sent = 1:multiple_send
+                packets_primary_modulated{idx}(nb_sent,:) = GMSK_modulation(packets_primary{idx}(nb_sent,:),sps,Tb);
+            end
+        end
+    else 
+        ...
+    end
+end
+
+%% Saving file
+
+if strcmp(packet_mode,"Legacy") == 1
+    saveSignalToFile(packets_modulated,ble_mode,packet_mode,unique_binary_file,time_between_primaries,data_rate,sps, multiple_send,mobile, entrelacage);  
+else
+    if strcmp(send_strategy,"primary") == 1
+        saveSignalToFile(packets_primary_modulated,ble_mode,packet_mode,unique_binary_file,time_between_primaries,data_rate,sps, multiple_send,mobile);
+
+    else 
+       ...
+    end
+end
+
+
+fprintf("Tous les fichiers ont été créé \n")
