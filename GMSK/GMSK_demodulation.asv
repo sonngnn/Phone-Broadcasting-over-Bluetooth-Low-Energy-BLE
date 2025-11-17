@@ -1,0 +1,27 @@
+function bits = GMSK_demodulation(signal, sps)
+    phase = unwrap(angle(signal));
+    dphase = diff(phase);
+    dphase = [dphase; dphase(end)];
+
+    % Sous-échantillonage
+    sampled = dphase(1 : sps*2 : end);
+
+    bits = sampled > 0;
+
+end
+
+function [bits, sampled_real] = GMSK_demodulation(signal, sps)
+    phase = unwrap(angle(signal));
+    dphase = diff(phase);
+    dphase = [dphase; dphase(end)];
+
+    % Sous-échantillonage
+    sampled = dphase(1 : sps*2 : end);
+
+    % Décision
+    bits = sampled > 0;
+
+    % Pour visualisation : on extrait la partie réelle du signal complexe
+    sampled_real = real(signal(idx)); % utile pour voir la constellation réelle
+end
+
