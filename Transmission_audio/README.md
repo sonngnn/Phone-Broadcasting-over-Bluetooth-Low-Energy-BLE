@@ -1,0 +1,1 @@
+Installation préalable de ffmpeg requise avant l’exécution des scripts.
