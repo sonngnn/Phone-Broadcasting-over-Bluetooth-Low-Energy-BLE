@@ -1,0 +1,36 @@
+<?xml version='1.0' encoding='utf-8'?>
+<widget id="com.ducroslaurentvincent.MonProjet" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
+    <name>MonProjet</name>
+    <description>Sample Apache Cordova App</description>
+    <author email="dev@cordova.apache.org" href="https://cordova.apache.org">
+        Apache Cordova Team
+    </author>
+    <content src="index.html" />
+    <allow-intent href="http://*/*" />
+    <allow-intent href="https://*/*" />
+
+    <platform name="ios">
+        <!-- Permissions -->
+        <edit-config file="*-Info.plist" mode="merge" target="NSBluetoothAlwaysUsageDescription">
+            <string>Nous utilisons Bluetooth pour scanner et nous connecter à des appareils proches.</string>
+        </edit-config>
+        <edit-config file="*-Info.plist" mode="merge" target="NSBluetoothPeripheralUsageDescription">
+            <string>Nous utilisons Bluetooth pour échanger des données avec des appareils proches.</string>
+        </edit-config>
+        <edit-config file="*-Info.plist" mode="merge" target="NSLocationWhenInUseUsageDescription">
+            <string>Nous avons besoin de votre localisation pour scanner les appareils Bluetooth proches.</string>
+        </edit-config>
+        <edit-config file="*-Info.plist" mode="merge" target="NSLocationAlwaysUsageDescription">
+            <string>Nous avons besoin de votre localisation pour scanner les appareils Bluetooth même en arrière-plan.</string>
+        </edit-config>
+
+        <!-- Background Modes -->
+        <edit-config file="*-Info.plist" mode="merge" target="UIBackgroundModes">
+            <array>
+                <string>bluetooth-central</string>
+                <string>bluetooth-peripheral</string>
+            </array>
+        </edit-config>
+    </platform>
+</widget>
+

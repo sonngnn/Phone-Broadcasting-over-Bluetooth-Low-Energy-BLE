@@ -1,0 +1,24 @@
+body { 
+    font-family: Arial, sans-serif; 
+    text-align: center; 
+    margin-top: 50px; 
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg,skyblue ,white ,lightgray);
+}
+        
+h1 { 
+    color: #6200ea; 
+}
+
+div {
+    width: 100%;
+    justify-content: center;
+    align-items: center;
+    display: flex;
+}
+
+div#cache {
+    display: none;
+    color: red;
+}
